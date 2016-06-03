@@ -68,21 +68,21 @@ class MovieTimeTable
 end
 
 class MovieShow
-  attr_reader :title, :theater, :version, :schedule
-  def initialize(title, theater, version, schedule)
+  attr_reader :title, :theater, :remarks, :schedule
+  def initialize(title, theater, remarks, schedule)
     @title = title
     @theater = theater
-    @version = version
+    @remarks = remarks
     @schedule = schedule
   end
   
   def to_s
-    [@title, @theater, @version, @schedule].join("\n")
+    [@title, @theater, @remarks, @schedule].join("\n")
   end
   
   def print_google_calendar
     @schedule.each_show{|start, finish|
-      puts [@title+(@version==""?"":" ")+@version,
+      puts [@title+(@remarks==""?"":" ")+@remarks,
             start.strftime("%Y/%m/%d"),
             start.strftime("%H:%M"),
             finish.strftime("%Y/%m/%d"),
@@ -141,7 +141,11 @@ ARGV.each{|mov_id|
     movieList = agent.page.search('//div[@class="movieList"]')
     movieList.each{|mov|
       th = mov.search('h3/a').text	# theater
-      v = mov.search('ul[@class="titleIcon"]/li').text	# version
+      rems = mov.search('ul[@class="titleIcon"]/li').map{|rem|
+        rem.text
+      }.delete_if{|rem|
+        rem == "LAST" || rem =~ /上映終了日/
+      }.join	# remarks
       texttable =  mov.search('th').each_slice(7).to_a.map{|i|
         i.map{|j|
           j.text
@@ -150,7 +154,7 @@ ARGV.each{|mov_id|
         i.text
       }
       tt = MovieTimeTable.new(texttable, runtime)	# schedule
-      shows << MovieShow.new(title, th, v, tt)
+      shows << MovieShow.new(title, th, rems, tt)
     }
   }
 }
