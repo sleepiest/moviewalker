@@ -24,7 +24,7 @@ class MovieTimeTable
 
     @table.map!{|r|
       r.map!{|c|
-        c.delete!("映画館問合")
+        c.delete!("映画館問合休")
         c[/[^\(]+/]
       }
     }
