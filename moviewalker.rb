@@ -41,9 +41,23 @@ class MovieTimeTable
       d[1] = d[1].split(" ")
     }
 
-    year = Date.today.year
+    year_crossing = false
+    @table.map{|d|
+      d[0] =~ /^\d+/
+      $&.to_i
+    }.inject{|mon_prev, mon|
+      year_crossing ||= (mon_prev > mon)
+      mon_prev = mon
+    }
+
+    cur_year = Date.today.year
+    cur_mon = Date.today.month
     @table.map!{|d|
       month, day = d[0].split("/").map{|i| i.to_i}
+      year = cur_year
+      if year_crossing
+        year += (cur_mon <=> month)
+      end
       d[1].map{|t|
         DateTime.parse(Chronic.parse("%d-%02d-%02d %s"%[year, month, day, t]).to_s)	# for "2016/02/14 26:25"
       }
@@ -80,27 +94,32 @@ class MovieShow
     [@title, @theater, @remarks, @schedule].join("\n")
   end
   
-  def print_google_calendar
+  def google_calendar_string
+    result = ""
     @schedule.each_show{|start, finish|
-      puts [@title+(@remarks==""?"":" ")+@remarks,
-            start.strftime("%Y/%m/%d"),
-            start.strftime("%H:%M"),
-            finish.strftime("%Y/%m/%d"),
-            finish.strftime("%H:%M"),
-            "FALSE",
-            "映画",
-            @theater,
-            "TRUE",
-            "off"].join(",")
+      result += [@title+(@remarks==""?"":" ")+@remarks,
+                 start.strftime("%Y/%m/%d"),
+                 start.strftime("%H:%M"),
+                 finish.strftime("%Y/%m/%d"),
+                 finish.strftime("%H:%M"),
+                 "FALSE",
+                 "映画",
+                 @theater,
+                 "TRUE",
+                 "off"].join(",")
+      result += "\n"
     }
+    result
   end
 end
 
-def print_google_calendar(shows)
-  puts "Subject,Start Date,Start Time,End Date,End Time,All Day Event,Description,Location,Private,Reminder On/Off"
+def google_calendar_string(shows)
+  result = [*" ".."~"].sample + "\n"
+  result += "+Subject,Start Date,Start Time,End Date,End Time,All Day Event,Description,Location,Private,Reminder On/Off" + "\n"
   shows.each{|show|
-    show.print_google_calendar
+    result += show.google_calendar_string
   }
+  result
 end
 
 ################################################################################
@@ -119,7 +138,10 @@ end
 #mov_id = "mv60042"	# deadpool
 
 shows = []
-ARGV.each{|mov_id|
+tmp_hash = Hash.new{|hash, key| hash[key]=true}
+ARGV.each{|mv| tmp_hash[mv]}
+mov_ids = tmp_hash.keys
+mov_ids.each{|mov_id|
   # 映画タイトル 上映時間
   movinfo_agent = Mechanize.new
   movinfo_agent.user_agent = 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)'
@@ -129,7 +151,7 @@ ARGV.each{|mov_id|
   title = movinfo_agent.page.search('//a[@property="v:name"]').text
 
   # 各県の劇場
-  prefs = %w(P_tokyo_23 P_tokyo_cities P_kanagawa P_chiba P_saitama P_ibaraki P_tochigi P_gunma)
+  prefs = %w(P_hyogo P_osaka P_kyoto)
   prefs.each{|pref|
     
     agent = Mechanize.new
@@ -158,7 +180,9 @@ ARGV.each{|mov_id|
     }
   }
 }
-print_google_calendar(shows)
+open(DateTime.now.strftime("%Y%m%d%H%M%S")+".log", "wb"){|f|
+  f.print google_calendar_string(shows)
+}
 
 # shows.each{|show|
 #   puts "@"*10
