@@ -42,16 +42,15 @@ class MovieTimeTable
     }
 
     year_crossing = false
-    @table.map{|d|
-      d[0] =~ /^\d+/
-      $&.to_i
-    }.inject{|mon_prev, mon|
-      year_crossing ||= (mon_prev > mon)
-      mon_prev = mon
-    }
+    cur_mon = Date.today.month
+    unless @table.empty?
+      @table.first[0] =~ /^\d+/
+      year_crossing ||= (cur_mon < $&.to_i)
+      @table.last[0] =~ /^\d+/
+      year_crossing ||= ($&.to_i < cur_mon)
+    end
 
     cur_year = Date.today.year
-    cur_mon = Date.today.month
     @table.map!{|d|
       month, day = d[0].split("/").map{|i| i.to_i}
       year = cur_year
